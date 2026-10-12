@@ -231,6 +231,7 @@ routerAdd(
     }
 
     let resultado = null
+    let carregId = ''
     try {
       resultado = $app.runInTransaction((txApp) => {
         const carregCol = txApp.findCollectionByNameOrId('proveniencia_carregamentos')
@@ -241,6 +242,7 @@ routerAdd(
         carreg.set('estado_validacao', 'ok')
         carreg.set('registros_lidos', p.linhas.length)
         txApp.save(carreg)
+        carregId = carreg.id
 
         const contratosCol = txApp.findCollectionByNameOrId('contratos')
         const itensCol = txApp.findCollectionByNameOrId('contratos_itens')
@@ -422,7 +424,7 @@ routerAdd(
           ev.set('data_evento', r.data_evento + ' 00:00:00.000Z')
           ev.set('fonte', r.fonte)
           ev.set('registro_origem', r.registro_origem)
-          ev.set('carregamento_id', carreg.id)
+          if (carregId) ev.set('carregamento_id', carregId)
           txApp.save(ev)
           eventosCriados++
         }
@@ -437,7 +439,7 @@ routerAdd(
         carga.set('rejeitadas', erros.length)
         carga.set('erros', JSON.stringify(erros.slice(0, 200)))
         carga.set('contrato_ids', JSON.stringify(contratoIds))
-        carga.set('carregamento_id', carreg.id)
+        if (carregId) carga.set('carregamento_id', carregId)
         carga.set('finalizado_em', new DateTime().string())
         txApp.save(carga)
 
