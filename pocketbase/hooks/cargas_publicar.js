@@ -3,10 +3,11 @@
 // Idempotência: checksum igual → relatório "repetida", nada reaplicado.
 // Transação: valida todo o lote e grava contratos+eventos+proveniência atômicos.
 // NOTAS:
-//  - Relações para registros criados NA MESMA transação não passam na validação
-//    do PocketBase (validation_missing_rel_records) → usar saveNoValidate nos
-//    itens/eventos (os dados já foram validados pelo validador da carga).
-//  - carregamento_id é vinculado APÓS o commit.
+//  - saveNoValidate em itens/eventos/carregamento: relações apontam para
+//    registros criados NA MESMA transação (o validador de relação do
+//    PocketBase não os resolve dentro da tx); os dados já passaram pelo
+//    validador da carga.
+//  - carregamento_id da carga é vinculado APÓS o commit.
 routerAdd(
   'POST',
   '/backend/v1/cargas/publicar',
@@ -444,7 +445,7 @@ routerAdd(
         carga.set('erros', JSON.stringify(erros.slice(0, 200)))
         carga.set('contrato_ids', JSON.stringify(contratoIds))
         carga.set('finalizado_em', new DateTime().string())
-        txApp.save(carga)
+        txApp.saveNoValidate(carga)
 
         return {
           contratos_criados: contratosCriados,
@@ -470,7 +471,10 @@ routerAdd(
       $app.save(carga)
       return e.json(400, {
         ok: false,
-        erro: 'falha na publicação — última versão publicada permanece (SPEC §5.7)',
+        erro:
+          'falha na publicação — última versão publicada permanece (SPEC §5.7) [' +
+          String(err).slice(0, 180) +
+          ']',
       })
     }
 

@@ -2,6 +2,9 @@
 // Reimplementação inline do núcleo de domínio (goja: sem helpers de top-level).
 // Regras centrais: não converter nulo em zero; não misturar unidades;
 // excedente não trunca; divergência preserva valores; cancelado não calcula.
+// NOTA: saveNoValidate — o item pode referenciar contrato criado na mesma
+// transação de carga (validação de relação não resolve dentro da tx); os dados
+// já foram validados pelo validador da carga/hook.
 onRecordAfterCreateSuccess((e) => {
   const ev = e.record
   const itemId = ev.getString('item_id')
@@ -81,7 +84,7 @@ onRecordAfterCreateSuccess((e) => {
     item.set('saldo_valor', saldo)
     item.set('saldo_motivo', motivo)
     item.set('saldo_calculado_em', new DateTime().string())
-    $app.save(item)
+    $app.saveNoValidate(item)
   } catch (err) {
     $app.logger().error('saldo: falha ao recalcular item ' + itemId, 'error', String(err))
   }
