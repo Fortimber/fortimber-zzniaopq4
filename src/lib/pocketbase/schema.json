@@ -29,19 +29,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -95,10 +90,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "nacional",
-            "internacional"
-          ]
+          "selectValues": ["nacional", "internacional"]
         },
         {
           "name": "cliente",
@@ -123,12 +115,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "vigente",
-            "encerrado",
-            "cancelado",
-            "suspenso"
-          ]
+          "selectValues": ["vigente", "encerrado", "cancelado", "suspenso"]
         },
         {
           "name": "data_inicio",
@@ -171,19 +158,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -276,19 +258,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
@@ -326,12 +303,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "expedicao",
-            "entrega_confirmada",
-            "producao",
-            "devolucao"
-          ]
+          "selectValues": ["expedicao", "entrega_confirmada", "producao", "devolucao"]
         },
         {
           "name": "quantidade",
@@ -374,19 +346,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         },
         {
           "name": "carregamento_id",
@@ -442,9 +409,7 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "carregado_por",
@@ -476,11 +441,7 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": [
-            "ok",
-            "erro",
-            "pendente"
-          ]
+          "selectValues": ["ok", "erro", "pendente"]
         },
         {
           "name": "observacoes",
@@ -493,19 +454,14 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate"
-          ]
+          "autodateTriggers": ["onCreate"]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": [
-            "onCreate",
-            "onUpdate"
-          ]
+          "autodateTriggers": ["onCreate", "onUpdate"]
         }
       ],
       "indexes": [
