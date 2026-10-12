@@ -1,5 +1,6 @@
 // F1-T04 — pré-validação de carga (SPEC-F1-02 §3/§6: prévia sem publicar)
 // POST /backend/v1/cargas/prevalidar  body: { texto_csv, arquivo_nome? }
+// Idempotência: checksum já conhecido → reusa a carga (ou reporta repetida).
 // Core inline (goja): parser CSV + validador + sha256 — espelha work/fortimber-domain/carga.ts
 routerAdd(
   'POST',
@@ -234,6 +235,35 @@ routerAdd(
     }
 
     const checksum = sha256Hex(texto)
+
+    // ---------- idempotência: checksum já registrado? ----------
+    const cargaCol = $app.findCollectionByNameOrId('cargas')
+    let cargaExistente = null
+    try {
+      cargaExistente = $app.findFirstRecordByFilter('cargas', 'checksum = {:cs}', { cs: checksum })
+    } catch (_) {
+      cargaExistente = null
+    }
+    if (
+      cargaExistente &&
+      (cargaExistente.getString('estado') === 'publicada' ||
+        cargaExistente.getString('estado') === 'publicada_com_excecoes')
+    ) {
+      return e.json(200, {
+        ok: true,
+        repetida: true,
+        carga_id: cargaExistente.id,
+        checksum: checksum,
+        mensagem: 'carga idêntica já publicada — nada a prevalidar (idempotência)',
+        total_linhas: cargaExistente.getInt('total_linhas'),
+        validas: cargaExistente.getInt('validas'),
+        erros: [],
+        previa: [],
+        contratos: [],
+        eventos: [],
+      })
+    }
+
     const p = parseCSV(texto)
     if (p.erro) return e.json(200, estrutural(checksum, p.erro, p.linhas.length))
     if (!p.header.length || p.header[0] !== 'tipo')
@@ -470,10 +500,12 @@ routerAdd(
       if (previa.length < 10) previa.push(classificada)
     }
 
-    // registrou a execução como pré_validando (auditoria da SPEC §3)
-    const cargaCol = $app.findCollectionByNameOrId('cargas')
-    const carga = new Record(cargaCol)
-    carga.set('checksum', checksum)
+    // upsert da execução (auditoria da SPEC §3): reusa registro com mesmo checksum
+    let carga = cargaExistente
+    if (!carga) {
+      carga = new Record(cargaCol)
+      carga.set('checksum', checksum)
+    }
     carga.set('arquivo_nome', arquivoNome)
     carga.set('template_v', 'v1')
     if (e.auth) carga.set('usuario_id', e.auth.id)
