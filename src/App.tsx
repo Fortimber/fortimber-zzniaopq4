@@ -5,6 +5,8 @@ import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import Index from './pages/Index'
 import Cargas from './pages/Cargas'
+import Contratos from './pages/Contratos'
+import ContratoDetalhePage from './pages/ContratoDetalhe'
 import Layout from './components/Layout'
 
 // ONLY IMPORT AND RENDER WORKING PAGES, NEVER ADD PLACEHOLDER COMPONENTS OR PAGES IN THIS FILE
@@ -19,6 +21,8 @@ const App = () => (
         <Route element={<Layout />}>
           <Route path="/" element={<Index />} />
           <Route path="/cargas" element={<Cargas />} />
+          <Route path="/contratos" element={<Contratos />} />
+          <Route path="/contratos/:id" element={<ContratoDetalhePage />} />
           {/* Rotas desconhecidas caem no Index envolto pelo AppLayout */}
           <Route path="*" element={<Index />} />
         </Route>

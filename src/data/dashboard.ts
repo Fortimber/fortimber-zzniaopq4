@@ -59,7 +59,7 @@ export const NAVIGATION_ITEMS: NavItemConfig[] = [
     label: 'Contratos',
     group: 'PRINCIPAL',
     icon: 'FileText',
-    disabled: true,
+    disabled: false,
     path: '/contratos',
   },
   {
