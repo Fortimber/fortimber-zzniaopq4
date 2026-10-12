@@ -1,5 +1,7 @@
 // F1-T05 — serviço de contratos (SPEC-F1-03): única porta de acesso aos dados.
 // Componentes nunca chamam o SDK diretamente (padrão do projeto).
+// NOTA: back-relation expand não é usada — itens/eventos são buscados por filtro
+// direto (contrato_id/item_id), que é o caminho suportado pelo PB v0.36 aqui.
 import pb from '@/lib/pocketbase/client'
 
 export interface ContratoLista {
@@ -11,7 +13,6 @@ export interface ContratoLista {
   prazo_fim: string
   numero_contrato: string
   sistema_origem: string
-  // do item principal (1 item por contrato no piloto)
   produto: string
   especie: string
   quantidade_vigente: number | null
@@ -19,7 +20,6 @@ export interface ContratoLista {
   saldo_estado: string
   saldo_valor: number | null
   saldo_motivo: string
-  // agregados de eventos (calculados no serviço, nunca misturados por unidade)
   entregue: number | null
   produzido: number | null
   atualizado_em: string
@@ -42,22 +42,22 @@ export interface EventoContrato {
 }
 
 export interface FiltrosContratos {
-  busca?: string // número/cliente
+  busca?: string
   mercado?: string
-  estado?: string // situação canônica
+  estado?: string
   produto?: string
-  incluirInativos?: boolean // exibir encerrados/cancelados
+  incluirInativos?: boolean
   page?: number
   perPage?: number
 }
 
 const TIPOS_ENTREGA = ['expedicao', 'entrega_confirmada', 'devolucao']
 
-/** Agrega eventos por unidade — nunca soma unidades distintas. */
+/** Agrega eventos por unidade — nunca soma unidades distintas; nulo nunca vira zero. */
 function agregarEventos(
   eventos: { evento_tipo: string; quantidade: number | null; unidade: string | null }[],
   unidadeItem: string | null,
-) {
+): { entregue: number | null; produzido: number | null } {
   let entregue: number | null = null
   let produzido: number | null = null
   if (unidadeItem) {
@@ -79,74 +79,104 @@ function agregarEventos(
   return { entregue, produzido }
 }
 
+interface ContratoRaw {
+  id: string
+  codigo: string
+  cliente: string
+  mercado: string
+  estado_registro: string
+  prazo_fim: string
+  numero_contrato: string
+  sistema_origem: string
+  updated: string
+}
+
+async function itemDoContrato(contratoId: string): Promise<Record<string, unknown> | undefined> {
+  const res = await pb.collection('contratos_itens').getList(1, 1, {
+    filter: pb.filter('contrato_id = {:c}', { c: contratoId }),
+  })
+  return res.items[0] as unknown as Record<string, unknown> | undefined
+}
+
+async function eventosDoItem(
+  itemId: string,
+  sort = '-data_evento',
+): Promise<Record<string, unknown>[]> {
+  const res = await pb.collection('contratos_eventos').getFullList({
+    filter: pb.filter('item_id = {:i}', { i: itemId }),
+    sort,
+  })
+  return res as unknown as Record<string, unknown>[]
+}
+
+function montarLista(
+  c: ContratoRaw,
+  it: Record<string, unknown> | undefined,
+  evs: Record<string, unknown>[],
+): ContratoLista {
+  const unidade = (it?.unidade as string | null) ?? null
+  const { entregue, produzido } = agregarEventos(
+    evs.map((ev) => ({
+      evento_tipo: String(ev.evento_tipo),
+      quantidade: (ev.quantidade as number | null) ?? null,
+      unidade: (ev.unidade as string | null) ?? null,
+    })),
+    unidade,
+  )
+  return {
+    id: c.id,
+    codigo: c.codigo,
+    cliente: c.cliente,
+    mercado: c.mercado,
+    estado_registro: c.estado_registro,
+    prazo_fim: c.prazo_fim ?? '',
+    numero_contrato: c.numero_contrato ?? '',
+    sistema_origem: c.sistema_origem ?? '',
+    produto: String(it?.produto ?? ''),
+    especie: String(it?.especie ?? ''),
+    quantidade_vigente: (it?.quantidade_vigente as number | null) ?? null,
+    unidade,
+    saldo_estado: String(it?.saldo_estado ?? 'nao_calculavel'),
+    saldo_valor: (it?.saldo_valor as number | null) ?? null,
+    saldo_motivo: String(it?.saldo_motivo ?? ''),
+    entregue,
+    produzido,
+    atualizado_em: c.updated ?? '',
+  }
+}
+
 export async function listarContratos(
   f: FiltrosContratos = {},
 ): Promise<{ items: ContratoLista[]; totalItems: number; totalPages: number }> {
   const filters: string[] = []
+  const bind: Record<string, string> = {}
   if (f.busca) {
-    // pesquisa por número de contrato ou cliente (escape de caracteres especiais)
     const esc = f.busca.replace(/["'\\]/g, '')
-    filters.push(`(codigo ~ {:b} || cliente ~ {:b} || numero_contrato ~ {:b})`)
-    return runList(f, filters[0], { b: esc })
+    filters.push('(codigo ~ {:b} || cliente ~ {:b} || numero_contrato ~ {:b})')
+    bind.b = esc
   }
-  if (f.mercado) filters.push(`mercado = {:mercado}`)
-  if (f.estado) filters.push(`estado_registro = {:estado}`)
+  if (f.mercado) {
+    filters.push('mercado = {:mercado}')
+    bind.mercado = f.mercado
+  }
+  if (f.estado) {
+    filters.push('estado_registro = {:estado}')
+    bind.estado = f.estado
+  }
   const filter = filters.join(' && ')
-  return runList(f, filter, { mercado: f.mercado ?? '', estado: f.estado ?? '' })
-}
 
-async function runList(
-  f: FiltrosContratos,
-  filter: string,
-  bind: Record<string, string>,
-): Promise<{ items: ContratoLista[]; totalItems: number; totalPages: number }> {
   const res = await pb.collection('contratos').getList(f.page ?? 1, f.perPage ?? 20, {
-    sort: 'prazo_fim,codigo', // prazo mais próximo, estável por código
+    sort: 'prazo_fim,codigo',
     ...(filter ? { filter: pb.filter(filter, bind) } : {}),
-    expand: 'contratos_itens',
   })
-  // expand reverso: itens do contrato
+
   const items: ContratoLista[] = []
-  for (const c of res.items as unknown as Record<string, unknown>[]) {
-    const itens = (c.expand as { contratos_itens?: unknown[] })?.contratos_itens ?? []
-    // piloto: 1 item por contrato; se houver mais, o primeiro ordenado
-    const it = (itens as Record<string, unknown>[])[0] as Record<string, unknown> | undefined
-    const unidade = (it?.unidade as string | null) ?? null
-    const eventosRaw = it
-      ? await pb.collection('contratos_eventos').getFullList({
-          filter: pb.filter('item_id = {:i}', { i: String(it.id) }),
-        })
-      : []
-    const { entregue, produzido } = agregarEventos(
-      eventosRaw.map((ev) => ({
-        evento_tipo: ev.evento_tipo,
-        quantidade: ev.quantidade,
-        unidade: ev.unidade,
-      })),
-      unidade,
-    )
-    items.push({
-      id: String(c.id),
-      codigo: String(c.codigo),
-      cliente: String(c.cliente),
-      mercado: String(c.mercado),
-      estado_registro: String(c.estado_registro),
-      prazo_fim: String(c.prazo_fim ?? ''),
-      numero_contrato: String(c.numero_contrato ?? ''),
-      sistema_origem: String(c.sistema_origem ?? ''),
-      produto: String(it?.produto ?? ''),
-      especie: String(it?.especie ?? ''),
-      quantidade_vigente: (it?.quantidade_vigente as number | null) ?? null,
-      unidade,
-      saldo_estado: String(it?.saldo_estado ?? 'nao_calculavel'),
-      saldo_valor: (it?.saldo_valor as number | null) ?? null,
-      saldo_motivo: String(it?.saldo_motivo ?? ''),
-      entregue,
-      produzido,
-      atualizado_em: String(c.updated ?? ''),
-    })
+  for (const raw of res.items as unknown as ContratoRaw[]) {
+    const it = await itemDoContrato(raw.id)
+    const evs = it ? await eventosDoItem(String(it.id)) : []
+    items.push(montarLista(raw, it, evs))
   }
-  // filtro de produto/estado ativo é aplicado pós-busca (campos do item)
+
   let filtrados = items
   if (f.produto)
     filtrados = filtrados.filter((x) => x.produto.toLowerCase().includes(f.produto!.toLowerCase()))
@@ -158,24 +188,16 @@ async function runList(
 }
 
 export async function obterContrato(id: string): Promise<ContratoDetalhe | null> {
-  let c: Record<string, unknown>
+  let c: ContratoRaw
   try {
-    c = (await pb
-      .collection('contratos')
-      .getOne(id, { expand: 'contratos_itens' })) as unknown as Record<string, unknown>
+    c = (await pb.collection('contratos').getOne(id)) as unknown as ContratoRaw
   } catch {
     return null
   }
-  const itens = (c.expand as { contratos_itens?: unknown[] })?.contratos_itens ?? []
-  const it = (itens as Record<string, unknown>[])[0] as Record<string, unknown> | undefined
-  const unidade = (it?.unidade as string | null) ?? null
-  const eventosRaw = it
-    ? await pb.collection('contratos_eventos').getFullList({
-        filter: pb.filter('item_id = {:i}', { i: String(it.id) }),
-        sort: '-data_evento',
-      })
-    : []
-  const eventos: EventoContrato[] = eventosRaw.map((ev) => ({
+  const it = await itemDoContrato(id)
+  const evs = it ? await eventosDoItem(String(it.id)) : []
+  const base = montarLista(c, it, evs)
+  const eventos: EventoContrato[] = evs.map((ev) => ({
     id: String(ev.id),
     evento_tipo: String(ev.evento_tipo),
     quantidade: (ev.quantidade as number | null) ?? null,
@@ -185,12 +207,13 @@ export async function obterContrato(id: string): Promise<ContratoDetalhe | null>
     registro_origem: String(ev.registro_origem ?? ''),
     carregado_em: String(ev.updated ?? ''),
   }))
-  const { entregue, produzido } = agregarEventos(eventos, unidade)
   const carregamentoId = it ? String(it.carregamento_id ?? '') : ''
   let carregamento: ContratoDetalhe['carregamento'] = null
   if (carregamentoId) {
     try {
-      const car = await pb.collection('proveniencia_carregamentos').getOne(carregamentoId)
+      const car = (await pb
+        .collection('proveniencia_carregamentos')
+        .getOne(carregamentoId)) as unknown as Record<string, string>
       carregamento = {
         fonte: car.fonte,
         arquivo_lote: car.arquivo_lote,
@@ -200,31 +223,10 @@ export async function obterContrato(id: string): Promise<ContratoDetalhe | null>
       /* proveniência opcional */
     }
   }
-  return {
-    id: String(c.id),
-    codigo: String(c.codigo),
-    cliente: String(c.cliente),
-    mercado: String(c.mercado),
-    estado_registro: String(c.estado_registro),
-    prazo_fim: String(c.prazo_fim ?? ''),
-    numero_contrato: String(c.numero_contrato ?? ''),
-    sistema_origem: String(c.sistema_origem ?? ''),
-    produto: String(it?.produto ?? ''),
-    especie: String(it?.especie ?? ''),
-    quantidade_vigente: (it?.quantidade_vigente as number | null) ?? null,
-    unidade,
-    saldo_estado: String(it?.saldo_estado ?? 'nao_calculavel'),
-    saldo_valor: (it?.saldo_valor as number | null) ?? null,
-    saldo_motivo: String(it?.saldo_motivo ?? ''),
-    entregue,
-    produzido,
-    atualizado_em: String(c.updated ?? ''),
-    eventos,
-    carregamento,
-  }
+  return { ...base, eventos, carregamento }
 }
 
-/** Resumo do topo — só soma unidades compatíveis; nunca mistura. */
+/** Resumo do topo — só soma unidades compatíveis; nunca mistura; nulo nunca vira zero. */
 export async function resumoContratos(): Promise<{
   ativos: number
   porUnidade: { unidade: string; contratado: number; entregue: number; saldo: number }[]
@@ -232,17 +234,26 @@ export async function resumoContratos(): Promise<{
   divergentes: number
   totalRegistros: number
 }> {
-  const contratos = await pb.collection('contratos').getFullList({ expand: 'contratos_itens' })
+  const contratos = (await pb.collection('contratos').getFullList()) as unknown as ContratoRaw[]
+  const itens = (await pb.collection('contratos_itens').getFullList()) as unknown as Record<
+    string,
+    unknown
+  >[]
+  const itemPorContrato = new Map<string, Record<string, unknown>>()
+  for (const it of itens) {
+    const cid = String(it.contrato_id ?? '')
+    if (!itemPorContrato.has(cid)) itemPorContrato.set(cid, it)
+  }
+
   const porUnidade = new Map<string, { contratado: number; entregue: number; saldo: number }>()
-  let ativos = 0
-  let incompletos = 0
-  let divergentes = 0
-  for (const c of contratos as unknown as Record<string, unknown>[]) {
-    const itens = (c.expand as { contratos_itens?: unknown[] })?.contratos_itens ?? []
-    const it = (itens as Record<string, unknown>[])[0] as Record<string, unknown> | undefined
+  let ativos = 0,
+    incompletos = 0,
+    divergentes = 0
+
+  for (const c of contratos) {
+    const it = itemPorContrato.get(c.id)
     if (!it) continue
-    const estado = String(c.estado_registro)
-    if (estado === 'vigente' || estado === 'suspenso') ativos++
+    if (c.estado_registro === 'vigente' || c.estado_registro === 'suspenso') ativos++
     if (String(it.saldo_estado) === 'nao_calculavel') incompletos++
     if (String(it.saldo_estado) === 'em_divergencia') divergentes++
     const unidade = String(it.unidade ?? '')
@@ -250,25 +261,33 @@ export async function resumoContratos(): Promise<{
     const bucket = porUnidade.get(unidade) ?? { contratado: 0, entregue: 0, saldo: 0 }
     const qtd = it.quantidade_vigente as number | null
     if (qtd !== null && qtd !== undefined) bucket.contratado += qtd
-    // saldo só entra quando calculado (não converte nulo em zero)
     if (String(it.saldo_estado) === 'calculado' && it.saldo_valor !== null)
       bucket.saldo += it.saldo_valor as number
     porUnidade.set(unidade, bucket)
   }
-  // entregue por unidade: soma eventos de itens com saldo calculado
-  for (const [unidade, bucket] of porUnidade) {
-    const itens = await pb.collection('contratos_itens').getFullList({
-      filter: pb.filter('unidade = {:u} && saldo_estado = {:s}', { u: unidade, s: 'calculado' }),
-    })
-    for (const it of itens) {
-      const evs = await pb.collection('contratos_eventos').getFullList({
-        filter: pb.filter('item_id = {:i}', { i: it.id }),
-      })
-      bucket.entregue += evs
-        .filter((ev) => TIPOS_ENTREGA.includes(ev.evento_tipo) && ev.quantidade !== null)
-        .reduce((s, ev) => s + (ev.quantidade as number), 0)
-    }
+
+  // entregue por unidade: soma eventos dos itens com saldo calculado naquela unidade
+  const eventos = (await pb.collection('contratos_eventos').getFullList()) as unknown as Record<
+    string,
+    unknown
+  >[]
+  const eventosPorItem = new Map<string, Record<string, unknown>[]>()
+  for (const ev of eventos) {
+    const iid = String(ev.item_id ?? '')
+    if (!eventosPorItem.has(iid)) eventosPorItem.set(iid, [])
+    eventosPorItem.get(iid)!.push(ev)
   }
+  for (const it of itens) {
+    if (String(it.saldo_estado) !== 'calculado') continue
+    const unidade = String(it.unidade ?? '')
+    const bucket = porUnidade.get(unidade)
+    if (!bucket) continue
+    const evs = eventosPorItem.get(String(it.id)) ?? []
+    bucket.entregue += evs
+      .filter((ev) => TIPOS_ENTREGA.includes(String(ev.evento_tipo)) && ev.quantidade !== null)
+      .reduce((s, ev) => s + (ev.quantidade as number), 0)
+  }
+
   return {
     ativos,
     porUnidade: [...porUnidade.entries()].map(([unidade, v]) => ({ unidade, ...v })),
