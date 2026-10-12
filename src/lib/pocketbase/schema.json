@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T18:12:31.425Z",
+  "generatedAt": "2026-10-12T18:34:17.275Z",
   "collections": [
     {
       "name": "users",
@@ -29,19 +29,487 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
         "CREATE UNIQUE INDEX `idx_tokenKey__pb_users_auth_` ON `users` (`tokenKey`)",
         "CREATE UNIQUE INDEX `idx_email__pb_users_auth_` ON `users` (`email`) WHERE `email` != ''"
+      ]
+    },
+    {
+      "name": "contratos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "codigo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "sistema_origem",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "id_externo",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "empresa_filial",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "numero_contrato",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "mercado",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "nacional",
+            "internacional"
+          ]
+        },
+        {
+          "name": "cliente",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "trade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estado_origem",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estado_registro",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "vigente",
+            "encerrado",
+            "cancelado",
+            "suspenso"
+          ]
+        },
+        {
+          "name": "data_inicio",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "prazo_fim",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "moeda",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "preco_unitario",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "revisao",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_contratos_identidade ON contratos (sistema_origem, id_externo, revisao)",
+        "CREATE INDEX idx_contratos_estado ON contratos (estado_registro)",
+        "CREATE INDEX idx_contratos_cliente ON contratos (cliente)"
+      ]
+    },
+    {
+      "name": "contratos_itens",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "contrato_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "contratos"
+        },
+        {
+          "name": "produto",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "especie",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "id_externo_item",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "quantidade_vigente",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unidade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "saldo_estado",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "calculado",
+            "nao_calculavel",
+            "em_divergencia",
+            "sem_eventos",
+            "cancelado"
+          ]
+        },
+        {
+          "name": "saldo_valor",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "saldo_motivo",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "saldo_calculado_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_itens_identidade ON contratos_itens (contrato_id, produto, id_externo_item)",
+        "CREATE INDEX idx_itens_contrato ON contratos_itens (contrato_id)"
+      ]
+    },
+    {
+      "name": "contratos_eventos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "item_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "contratos_itens"
+        },
+        {
+          "name": "contrato_id",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "contratos"
+        },
+        {
+          "name": "evento_tipo",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "expedicao",
+            "entrega_confirmada",
+            "producao",
+            "devolucao"
+          ]
+        },
+        {
+          "name": "quantidade",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "unidade",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "data_evento",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "fonte",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "registro_origem",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacao",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        },
+        {
+          "name": "carregamento_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "proveniencia_carregamentos"
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_eventos_dedup ON contratos_eventos (item_id, evento_tipo, fonte, registro_origem)",
+        "CREATE INDEX idx_eventos_item ON contratos_eventos (item_id)",
+        "CREATE INDEX idx_eventos_contrato ON contratos_eventos (contrato_id)"
+      ]
+    },
+    {
+      "name": "proveniencia_carregamentos",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "fonte",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "arquivo_lote",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "execucao_id",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "extraido_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "carregado_em",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "carregado_por",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "registros_lidos",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "registros_publicados",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "registros_erro",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "estado_validacao",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "ok",
+            "erro",
+            "pendente"
+          ]
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_carregamentos_fonte ON proveniencia_carregamentos (fonte, carregado_em)"
       ]
     }
   ]
