@@ -13,7 +13,7 @@ onRecordAfterCreateSuccess((e) => {
       '-data_evento',
       0,
       0,
-      itemId,
+      { item_id: itemId },
     )
 
     // D-F1-02: eventos que contam como entrega

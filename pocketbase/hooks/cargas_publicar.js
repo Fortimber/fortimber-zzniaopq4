@@ -10,7 +10,7 @@ routerAdd(
     const texto = (body && body.texto_csv) || ''
     const cargaId = (body && body.carga_id) || ''
 
-    // ---------- sha256 ----------
+    // ---------- sha256 (tabela de constantes explícita) ----------
     function sha256Hex(str) {
       const K = [
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
@@ -199,7 +199,6 @@ routerAdd(
       carga.getString('estado') === 'publicada' ||
       carga.getString('estado') === 'publicada_com_excecoes'
     ) {
-      // reenvio idêntico: relatório sem reaplicar eventos (SPEC §3 idempotência)
       return e.json(200, {
         ok: true,
         repetida: true,
@@ -234,7 +233,6 @@ routerAdd(
     let resultado = null
     try {
       resultado = $app.runInTransaction((txApp) => {
-        // proveniência do lote
         const carregCol = txApp.findCollectionByNameOrId('proveniencia_carregamentos')
         const carreg = new Record(carregCol)
         carreg.set('fonte', 'carga-piloto')
@@ -254,9 +252,9 @@ routerAdd(
           incompletas = 0
         const contratoIds = []
         const erros = []
-        const itemMap = {} // codigo|id_item → record (preenchido na passada de contratos)
+        const itemMap = {} // codigo|id_item → record
 
-        // 1) contratos (upsert idempotente pela chave canônica sistema+id_externo+revisao)
+        // 1) contratos + itens (upsert idempotente pela chave canônica)
         for (const l of p.linhas) {
           const r = l.raw
           if ((r.tipo || '').toLowerCase() !== 'contrato') continue
@@ -319,7 +317,6 @@ routerAdd(
             contratoIds.push(rec.id)
           }
 
-          // item do contrato (1 por linha de contrato neste template)
           if (!r.produto) {
             erros.push({
               linha: l.n,
@@ -334,8 +331,7 @@ routerAdd(
             item = txApp.findFirstRecordByFilter(
               'contratos_itens',
               'contrato_id = {:c} && id_externo_item = {:i}',
-              rec.id,
-              idItem,
+              { c: rec.id, i: idItem },
             )
           } catch (_) {
             item = null
@@ -368,8 +364,7 @@ routerAdd(
             erros.push({
               linha: l.n,
               codigo: 'contrato_ausente',
-              mensagem:
-                'evento sem contrato/item no lote (contrato precisa vir na mesma carga ou já existir com item criado aqui)',
+              mensagem: 'evento sem contrato/item criado na mesma carga',
             })
             continue
           }
@@ -405,17 +400,13 @@ routerAdd(
             continue
           }
 
-          // dedup contra o banco (idempotência entre lotes)
           const existentes = txApp.findRecordsByFilter(
             'contratos_eventos',
             'item_id = {:i} && evento_tipo = {:t} && fonte = {:f} && registro_origem = {:r}',
             '',
             1,
             0,
-            item.id,
-            r.evento_tipo,
-            r.fonte,
-            r.registro_origem,
+            { i: item.id, t: r.evento_tipo, f: r.fonte, r: r.registro_origem },
           )
           if (existentes.length > 0) {
             eventosDuplicados++
@@ -436,7 +427,6 @@ routerAdd(
           eventosCriados++
         }
 
-        // estado final da carga
         let estado = 'publicada'
         if (erros.length > 0 || eventosDuplicados > 0) estado = 'publicada_com_excecoes'
         carga.set('estado', estado)
@@ -461,7 +451,6 @@ routerAdd(
         }
       })
     } catch (err) {
-      // falha após validação e antes da publicação: dataset anterior intacto (SPEC §5.7)
       $app.logger().error('cargas: falha na publicação', 'error', String(err))
       carga.set('estado', 'rejeitada')
       carga.set('observacoes', 'falha na transação de publicação')

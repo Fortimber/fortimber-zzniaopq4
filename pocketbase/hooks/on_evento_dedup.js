@@ -15,10 +15,7 @@ onRecordCreateRequest((e) => {
       '',
       1,
       0,
-      itemId,
-      tipo,
-      fonte,
-      registro,
+      { item_id: itemId, tipo: tipo, fonte: fonte, registro: registro },
     )
     if (existing.length > 0) {
       throw new BadRequestError(
