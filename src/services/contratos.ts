@@ -1,7 +1,10 @@
 // F1-T05 — serviço de contratos (SPEC-F1-03): única porta de acesso aos dados.
 // Componentes nunca chamam o SDK diretamente (padrão do projeto).
-// NOTA: back-relation expand não é usada — itens/eventos são buscados por filtro
-// direto (contrato_id/item_id), que é o caminho suportado pelo PB v0.36 aqui.
+// NOTAS:
+//  - Back-relation expand não é usada — itens/eventos são buscados por filtro
+//    direto (contrato_id/item_id), caminho suportado pelo PB v0.36 aqui.
+//  - PB serializa número nulo como 0 no REST: a ausência real é detectada pelo
+//    saldo_estado/saldo_motivo do item (SPEC §5 — ausência nunca vira zero).
 import pb from '@/lib/pocketbase/client'
 
 export interface ContratoLista {
@@ -52,6 +55,14 @@ export interface FiltrosContratos {
 }
 
 const TIPOS_ENTREGA = ['expedicao', 'entrega_confirmada', 'devolucao']
+
+/** Ausência real de quantidade: PB devolve 0 para nulo — o motivo do saldo é a fonte da verdade. */
+function quantidadeAusente(it: Record<string, unknown>): boolean {
+  return (
+    String(it?.saldo_estado ?? '') === 'nao_calculavel' &&
+    String(it?.saldo_motivo ?? '').includes('ausente')
+  )
+}
 
 /** Agrega eventos por unidade — nunca soma unidades distintas; nulo nunca vira zero. */
 function agregarEventos(
@@ -123,6 +134,7 @@ function montarLista(
     })),
     unidade,
   )
+  const qtdBruta = (it?.quantidade_vigente as number | null) ?? null
   return {
     id: c.id,
     codigo: c.codigo,
@@ -134,7 +146,7 @@ function montarLista(
     sistema_origem: c.sistema_origem ?? '',
     produto: String(it?.produto ?? ''),
     especie: String(it?.especie ?? ''),
-    quantidade_vigente: (it?.quantidade_vigente as number | null) ?? null,
+    quantidade_vigente: quantidadeAusente(it) ? null : qtdBruta,
     unidade,
     saldo_estado: String(it?.saldo_estado ?? 'nao_calculavel'),
     saldo_valor: (it?.saldo_valor as number | null) ?? null,
@@ -226,7 +238,7 @@ export async function obterContrato(id: string): Promise<ContratoDetalhe | null>
   return { ...base, eventos, carregamento }
 }
 
-/** Resumo do topo — só soma unidades compatíveis; nunca mistura; nulo nunca vira zero. */
+/** Resumo do topo — só soma unidades compatíveis; nunca mistura; ausência nunca vira zero. */
 export async function resumoContratos(): Promise<{
   ativos: number
   porUnidade: { unidade: string; contratado: number; entregue: number; saldo: number }[]
@@ -259,7 +271,7 @@ export async function resumoContratos(): Promise<{
     const unidade = String(it.unidade ?? '')
     if (!unidade) continue
     const bucket = porUnidade.get(unidade) ?? { contratado: 0, entregue: 0, saldo: 0 }
-    const qtd = it.quantidade_vigente as number | null
+    const qtd = quantidadeAusente(it) ? null : ((it.quantidade_vigente as number | null) ?? null)
     if (qtd !== null && qtd !== undefined) bucket.contratado += qtd
     if (String(it.saldo_estado) === 'calculado' && it.saldo_valor !== null)
       bucket.saldo += it.saldo_valor as number
