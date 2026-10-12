@@ -1,5 +1,3 @@
-/* Fictional data centralized for Fortimber Dashboard */
-
 export interface KpiData {
   id: string
   label: string
@@ -63,6 +61,14 @@ export const NAVIGATION_ITEMS: NavItemConfig[] = [
     icon: 'FileText',
     disabled: true,
     path: '/contratos',
+  },
+  {
+    id: 'cargas',
+    label: 'Cargas',
+    group: 'PRINCIPAL',
+    icon: 'FileText',
+    disabled: false,
+    path: '/cargas',
   },
 
   // OPERACIONAL

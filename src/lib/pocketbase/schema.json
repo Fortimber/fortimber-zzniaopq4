@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-12T18:34:17.275Z",
+  "generatedAt": "2026-10-12T18:54:32.376Z",
   "collections": [
     {
       "name": "users",
@@ -29,14 +29,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -90,7 +95,10 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["nacional", "internacional"]
+          "selectValues": [
+            "nacional",
+            "internacional"
+          ]
         },
         {
           "name": "cliente",
@@ -115,7 +123,12 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["vigente", "encerrado", "cancelado", "suspenso"]
+          "selectValues": [
+            "vigente",
+            "encerrado",
+            "cancelado",
+            "suspenso"
+          ]
         },
         {
           "name": "data_inicio",
@@ -158,14 +171,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -258,14 +276,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
@@ -303,7 +326,12 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["expedicao", "entrega_confirmada", "producao", "devolucao"]
+          "selectValues": [
+            "expedicao",
+            "entrega_confirmada",
+            "producao",
+            "devolucao"
+          ]
         },
         {
           "name": "quantidade",
@@ -346,14 +374,19 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         },
         {
           "name": "carregamento_id",
@@ -409,7 +442,9 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "carregado_por",
@@ -441,7 +476,11 @@
           "type": "select",
           "required": true,
           "system": false,
-          "selectValues": ["ok", "erro", "pendente"]
+          "selectValues": [
+            "ok",
+            "erro",
+            "pendente"
+          ]
         },
         {
           "name": "observacoes",
@@ -454,18 +493,177 @@
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate"]
+          "autodateTriggers": [
+            "onCreate"
+          ]
         },
         {
           "name": "updated",
           "type": "autodate",
           "required": false,
           "system": false,
-          "autodateTriggers": ["onCreate", "onUpdate"]
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
         }
       ],
       "indexes": [
         "CREATE INDEX idx_carregamentos_fonte ON proveniencia_carregamentos (fonte, carregado_em)"
+      ]
+    },
+    {
+      "name": "cargas",
+      "type": "base",
+      "apiRules": {
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": null,
+        "update": null,
+        "delete": null
+      },
+      "fields": [
+        {
+          "name": "checksum",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "arquivo_nome",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "template_v",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "usuario_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "estado",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "pre_validando",
+            "pronta_aprovacao",
+            "publicada",
+            "publicada_com_excecoes",
+            "rejeitada",
+            "revertida"
+          ]
+        },
+        {
+          "name": "total_linhas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "validas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "incompletas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "rejeitadas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "duplicadas",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contratos_criados",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "eventos_criados",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "eventos_duplicados",
+          "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "erros",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "contrato_ids",
+          "type": "json",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "carregamento_id",
+          "type": "relation",
+          "required": false,
+          "system": false,
+          "collectionRef": "proveniencia_carregamentos"
+        },
+        {
+          "name": "finalizado_em",
+          "type": "date",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "observacoes",
+          "type": "text",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate"
+          ]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": [
+            "onCreate",
+            "onUpdate"
+          ]
+        }
+      ],
+      "indexes": [
+        "CREATE UNIQUE INDEX idx_cargas_checksum ON cargas (checksum)",
+        "CREATE INDEX idx_cargas_estado ON cargas (estado)"
       ]
     }
   ]
