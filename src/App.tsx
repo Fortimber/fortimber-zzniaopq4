@@ -7,6 +7,7 @@ import Index from './pages/Index'
 import Cargas from './pages/Cargas'
 import Contratos from './pages/Contratos'
 import ContratoDetalhePage from './pages/ContratoDetalhe'
+import Uat from './pages/Uat'
 import Layout from './components/Layout'
 
 // ONLY IMPORT AND RENDER WORKING PAGES, NEVER ADD PLACEHOLDER COMPONENTS OR PAGES IN THIS FILE
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/cargas" element={<Cargas />} />
           <Route path="/contratos" element={<Contratos />} />
           <Route path="/contratos/:id" element={<ContratoDetalhePage />} />
+          <Route path="/uat" element={<Uat />} />
           {/* Rotas desconhecidas caem no Index envolto pelo AppLayout */}
           <Route path="*" element={<Index />} />
         </Route>

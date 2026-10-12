@@ -8,6 +8,7 @@ import {
   Truck,
   Bell,
   Settings,
+  ClipboardList,
   ChevronRight,
   LogOut,
   Trees,
@@ -21,7 +22,7 @@ interface SidebarProps {
   onCloseMobile?: () => void
 }
 
-const iconMap = {
+const iconMap: Record<string, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
   LayoutDashboard,
   FileText,
   CalendarRange,
@@ -30,6 +31,7 @@ const iconMap = {
   Truck,
   Bell,
   Settings,
+  ClipboardList,
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({

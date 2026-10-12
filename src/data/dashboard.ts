@@ -70,6 +70,14 @@ export const NAVIGATION_ITEMS: NavItemConfig[] = [
     disabled: false,
     path: '/cargas',
   },
+  {
+    id: 'uat',
+    label: 'UAT',
+    group: 'PRINCIPAL',
+    icon: 'ClipboardList' as NavItemConfig['icon'],
+    disabled: false,
+    path: '/uat',
+  },
 
   // OPERACIONAL
   {
