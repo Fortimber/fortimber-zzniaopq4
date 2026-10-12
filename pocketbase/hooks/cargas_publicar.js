@@ -2,8 +2,16 @@
 // POST /backend/v1/cargas/publicar  body: { carga_id, texto_csv }
 // Idempotência: checksum igual → relatório "repetida", nada reaplicado.
 // Transação: valida todo o lote e grava contratos+eventos+proveniência atômicos.
-// FIX GoError: o callback de $app.runInTransaction não retorna objetos JS
-// literais (goja não converte) — retorna true e o relatório é montado fora.
+// NOTAS:
+//  - saveNoValidate em itens/eventos/carregamento: relações apontam para
+//    registros criados NA MESMA transação (o validador de relação do
+//    PocketBase não os resolve dentro da tx); os dados já passaram pelo
+//    validador da carga.
+//  - carregamento_id da carga é vinculado APÓS o commit.
+//  - FIX GoError: o callback de $app.runInTransaction não pode retornar NADA
+//    (objeto OU booleano — goja converte o retorno em erro Go e falha com
+//    "could not convert X to error"). O relatório é montado fora da tx via
+//    variáveis capturadas.
 routerAdd(
   'POST',
   '/backend/v1/cargas/publicar',
@@ -455,7 +463,6 @@ routerAdd(
         relIncompletas = incompletas
         relErros = erros.slice(0, 50)
         relEstado = estado
-        return true
       })
       resultado = {
         contratos_criados: relContratos,
