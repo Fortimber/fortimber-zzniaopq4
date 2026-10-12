@@ -2,6 +2,8 @@
 // POST /backend/v1/cargas/publicar  body: { carga_id, texto_csv }
 // Idempotência: checksum igual → relatório "repetida", nada reaplicado.
 // Transação: valida todo o lote e grava contratos+eventos+proveniência atômicos.
+// NOTA: relações (carregamento_id) são gravadas APÓS o commit — o validador
+// do PocketBase não resolve relação para registro criado dentro da transação.
 routerAdd(
   'POST',
   '/backend/v1/cargas/publicar',
@@ -424,7 +426,7 @@ routerAdd(
           ev.set('data_evento', r.data_evento + ' 00:00:00.000Z')
           ev.set('fonte', r.fonte)
           ev.set('registro_origem', r.registro_origem)
-          if (carregId) ev.set('carregamento_id', carregId)
+          // carregamento_id é vinculado após o commit (ver NOTA no topo)
           txApp.save(ev)
           eventosCriados++
         }
@@ -439,7 +441,6 @@ routerAdd(
         carga.set('rejeitadas', erros.length)
         carga.set('erros', JSON.stringify(erros.slice(0, 200)))
         carga.set('contrato_ids', JSON.stringify(contratoIds))
-        if (carregId) carga.set('carregamento_id', carregId)
         carga.set('finalizado_em', new DateTime().string())
         txApp.save(carga)
 
@@ -452,6 +453,14 @@ routerAdd(
           estado: estado,
         }
       })
+      // APÓS o commit: vincula proveniência (relação não valida dentro da transação)
+      if (carregId) {
+        try {
+          const c2 = $app.findRecordById('cargas', carga.id)
+          c2.set('carregamento_id', carregId)
+          $app.save(c2)
+        } catch (_) {}
+      }
     } catch (err) {
       $app.logger().error('cargas: falha na publicação', 'error', String(err))
       carga.set('estado', 'rejeitada')
