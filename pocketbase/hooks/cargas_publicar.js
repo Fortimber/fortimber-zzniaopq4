@@ -2,12 +2,8 @@
 // POST /backend/v1/cargas/publicar  body: { carga_id, texto_csv }
 // Idempotência: checksum igual → relatório "repetida", nada reaplicado.
 // Transação: valida todo o lote e grava contratos+eventos+proveniência atômicos.
-// NOTAS:
-//  - saveNoValidate em itens/eventos/carregamento: relações apontam para
-//    registros criados NA MESMA transação (o validador de relação do
-//    PocketBase não os resolve dentro da tx); os dados já passaram pelo
-//    validador da carga.
-//  - carregamento_id da carga é vinculado APÓS o commit.
+// FIX GoError: o callback de $app.runInTransaction não retorna objetos JS
+// literais (goja não converte) — retorna true e o relatório é montado fora.
 routerAdd(
   'POST',
   '/backend/v1/cargas/publicar',
@@ -238,8 +234,14 @@ routerAdd(
 
     let resultado = null
     let carregId = ''
+    let relContratos = 0,
+      relEventos = 0,
+      relDuplicados = 0,
+      relIncompletas = 0
+    let relErros = [],
+      relEstado = ''
     try {
-      resultado = $app.runInTransaction((txApp) => {
+      $app.runInTransaction((txApp) => {
         const carregCol = txApp.findCollectionByNameOrId('proveniencia_carregamentos')
         const carreg = new Record(carregCol)
         carreg.set('fonte', 'carga-piloto')
@@ -447,15 +449,22 @@ routerAdd(
         carga.set('finalizado_em', new DateTime().string())
         txApp.saveNoValidate(carga)
 
-        return {
-          contratos_criados: contratosCriados,
-          eventos_criados: eventosCriados,
-          eventos_duplicados: eventosDuplicados,
-          incompletas: incompletas,
-          erros: erros.slice(0, 50),
-          estado: estado,
-        }
+        relContratos = contratosCriados
+        relEventos = eventosCriados
+        relDuplicados = eventosDuplicados
+        relIncompletas = incompletas
+        relErros = erros.slice(0, 50)
+        relEstado = estado
+        return true
       })
+      resultado = {
+        contratos_criados: relContratos,
+        eventos_criados: relEventos,
+        eventos_duplicados: relDuplicados,
+        incompletas: relIncompletas,
+        erros: relErros,
+        estado: relEstado,
+      }
       // APÓS o commit: vincula proveniência (relação não valida dentro da transação)
       if (carregId) {
         try {
@@ -465,6 +474,7 @@ routerAdd(
         } catch (_) {}
       }
     } catch (err) {
+      console.log('erro original da tx:', (err && err.message) || String(err))
       $app.logger().error('cargas: falha na publicação', 'error', String(err))
       carga.set('estado', 'rejeitada')
       carga.set('observacoes', 'falha na transação de publicação')
