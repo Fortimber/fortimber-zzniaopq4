@@ -2,8 +2,11 @@
 // POST /backend/v1/cargas/publicar  body: { carga_id, texto_csv }
 // Idempotência: checksum igual → relatório "repetida", nada reaplicado.
 // Transação: valida todo o lote e grava contratos+eventos+proveniência atômicos.
-// NOTA: relações (carregamento_id) são gravadas APÓS o commit — o validador
-// do PocketBase não resolve relação para registro criado dentro da transação.
+// NOTAS:
+//  - Relações para registros criados NA MESMA transação não passam na validação
+//    do PocketBase (validation_missing_rel_records) → usar saveNoValidate nos
+//    itens/eventos (os dados já foram validados pelo validador da carga).
+//  - carregamento_id é vinculado APÓS o commit.
 routerAdd(
   'POST',
   '/backend/v1/cargas/publicar',
@@ -243,7 +246,7 @@ routerAdd(
         carreg.set('execucao_id', carga.id)
         carreg.set('estado_validacao', 'ok')
         carreg.set('registros_lidos', p.linhas.length)
-        txApp.save(carreg)
+        txApp.saveNoValidate(carreg)
         carregId = carreg.id
 
         const contratosCol = txApp.findCollectionByNameOrId('contratos')
@@ -316,7 +319,7 @@ routerAdd(
             rec.set('cliente', r.cliente)
             rec.set('estado_registro', r.estado_registro)
             rec.set('revisao', rev)
-            txApp.save(rec)
+            txApp.saveNoValidate(rec)
             contratosCriados++
             contratoIds.push(rec.id)
           }
@@ -352,13 +355,13 @@ routerAdd(
             item.set('saldo_valor', null)
             item.set('saldo_motivo', 'nenhum evento de entrega reconhecido')
             item.set('saldo_calculado_em', new DateTime().string())
-            txApp.save(item)
+            txApp.saveNoValidate(item) // contrato_id aponta p/ registro da mesma tx
           }
           if (qtd === null) incompletas++
           itemMap[r.codigo + '|' + idItem] = item
         }
 
-        // 2) eventos (dedup por item+tipo+fonte+registro_origem; hook de saldo recalcula)
+        // 2) eventos (dedup por item+tipo+fonte+registro_origem; hook de saldo recalcula pós-commit)
         for (const l of p.linhas) {
           const r = l.raw
           if ((r.tipo || '').toLowerCase() !== 'evento') continue
@@ -426,8 +429,7 @@ routerAdd(
           ev.set('data_evento', r.data_evento + ' 00:00:00.000Z')
           ev.set('fonte', r.fonte)
           ev.set('registro_origem', r.registro_origem)
-          // carregamento_id é vinculado após o commit (ver NOTA no topo)
-          txApp.save(ev)
+          txApp.saveNoValidate(ev) // item_id/contrato_id apontam p/ registros da mesma tx
           eventosCriados++
         }
 
