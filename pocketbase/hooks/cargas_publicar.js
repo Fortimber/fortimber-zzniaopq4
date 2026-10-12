@@ -8,14 +8,32 @@
 //    PocketBase não os resolve dentro da tx); os dados já passaram pelo
 //    validador da carga.
 //  - carregamento_id da carga é vinculado APÓS o commit.
-//  - FIX GoError: o callback de $app.runInTransaction não pode retornar NADA
-//    (objeto OU booleano — goja converte o retorno em erro Go e falha com
-//    "could not convert X to error"). O relatório é montado fora da tx via
-//    variáveis capturadas.
+//  - F1-T06: papel obrigatório (operador/admin) — check inline no handler.
 routerAdd(
   'POST',
   '/backend/v1/cargas/publicar',
   (e) => {
+    // F1-T06: papel obrigatório (SPEC-F1-04 §3) — operador/admin; leitor/anônimo 403 neutro
+    {
+      const auth = e.auth
+      const role = auth ? auth.getString('role') : ''
+      if (role !== 'operador' && role !== 'admin') {
+        if (auth)
+          $app
+            .logger()
+            .warn(
+              'acesso negado: papel insuficiente',
+              'rota',
+              e.request.url.path,
+              'ator',
+              auth.id,
+              'papel',
+              role,
+            )
+        return e.forbiddenError('Acesso restrito a operadores autorizados.')
+      }
+    }
+
     const body = e.requestInfo().body
     const texto = (body && body.texto_csv) || ''
     const cargaId = (body && body.carga_id) || ''

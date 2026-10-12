@@ -1,11 +1,33 @@
 // F1-T04 — pré-validação de carga (SPEC-F1-02 §3/§6: prévia sem publicar)
 // POST /backend/v1/cargas/prevalidar  body: { texto_csv, arquivo_nome? }
 // Idempotência: checksum já conhecido → reusa a carga (ou reporta repetida).
+// F1-T06: papel obrigatório (operador/admin) — check inline no handler.
 // Core inline (goja): parser CSV + validador + sha256 — espelha work/fortimber-domain/carga.ts
 routerAdd(
   'POST',
   '/backend/v1/cargas/prevalidar',
   (e) => {
+    // F1-T06: papel obrigatório (SPEC-F1-04 §3) — operador/admin; leitor/anônimo 403 neutro
+    {
+      const auth = e.auth
+      const role = auth ? auth.getString('role') : ''
+      if (role !== 'operador' && role !== 'admin') {
+        if (auth)
+          $app
+            .logger()
+            .warn(
+              'acesso negado: papel insuficiente',
+              'rota',
+              e.request.url.path,
+              'ator',
+              auth.id,
+              'papel',
+              role,
+            )
+        return e.forbiddenError('Acesso restrito a operadores autorizados.')
+      }
+    }
+
     const body = e.requestInfo().body
     const texto = (body && body.texto_csv) || ''
     const arquivoNome = String((body && body.arquivo_nome) || 'sem-nome.csv').slice(0, 200)
