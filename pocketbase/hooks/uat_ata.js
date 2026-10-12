@@ -1,6 +1,7 @@
 // F1-T07 — ata de UAT exportável (SPEC-F1-04 §7: "Registro UAT com esperado/observado/
 // evidência por cenário e decisão explícita")
 // GET /backend/v1/uat/ata?formato=md|csv (padrão md)
+// Retorna JSON { ok, formato, ata } — o corpo é string; download/conversão no cliente.
 // Acesso: qualquer autenticado.
 routerAdd(
   'GET',
@@ -28,8 +29,9 @@ routerAdd(
       'fonte-desatualizada': 'Fonte desatualizada',
     }
 
+    let ata = ''
     if (formato === 'csv') {
-      let csv =
+      ata =
         'cenario;cenario_nome;papel;representante;resultado;observado;evidencia;observacao;respondido_em\n'
       for (const x of execs) {
         const cid = x.getString('cenario_id')
@@ -44,10 +46,10 @@ routerAdd(
           x.getString('observacao'),
           x.getString('updated'),
         ]
-        csv += campos.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(';') + '\n'
+        ata += campos.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(';') + '\n'
       }
       if (decisao) {
-        csv +=
+        ata +=
           '\ndecisao;"' +
           decisao.getString('decisao') +
           '";responsavel;"' +
@@ -58,56 +60,52 @@ routerAdd(
           decisao.getString('decidido_em') +
           '"\n'
       }
-      e.response.headers.set('Content-Type', 'text/csv; charset=utf-8')
-      e.response.headers.set('Content-Disposition', 'attachment; filename="ata-uat-fase1.csv"')
-      return e.json(200, csv) // corpo simples; headers de download
-    }
-
-    // markdown
-    let md = '# Ata de UAT — Fase 1 (Fortimber — Adapta Native)\n\n'
-    md +=
-      'Gerada em ' +
-      new Date().toISOString().slice(0, 16).replace('T', ' ') +
-      ' UTC por ' +
-      auth.getString('name') +
-      '\n\n'
-    md += '| Cenário | Papel | Representante | Resultado | Observado | Evidência | Observação |\n'
-    md += '|---|---|---|---|---|---|---|\n'
-    for (const x of execs) {
-      const cid = x.getString('cenario_id')
-      md +=
-        '| ' +
-        (NOMES[cid] || cid) +
-        ' (' +
-        cid +
-        ') | ' +
-        x.getString('papel') +
-        ' | ' +
-        x.getString('representante') +
-        ' | ' +
-        x.getString('resultado') +
-        ' | ' +
-        (x.getString('observado') || '—') +
-        ' | ' +
-        (x.getString('evidencia') || '—') +
-        ' | ' +
-        (x.getString('observacao') || '—') +
-        ' |\n'
-    }
-    if (decisao) {
-      md += '\n## Decisão de piloto\n\n'
-      md += '- **Decisão:** ' + decisao.getString('decisao') + '\n'
-      md += '- **Responsável:** ' + decisao.getString('responsavel') + '\n'
-      md += '- **Justificativa:** ' + decisao.getString('justificativa') + '\n'
-      if (decisao.getString('bloqueios'))
-        md += '- **Bloqueios:** ' + decisao.getString('bloqueios') + '\n'
-      md += '- **Data:** ' + decisao.getString('decidido_em') + '\n'
     } else {
-      md +=
-        '\n## Decisão de piloto\n\n_Pendente — nenhuma decisão registrada (a aprovação nunca é inferida por silêncio)._\n'
+      ata = '# Ata de UAT — Fase 1 (Fortimber — Adapta Native)\n\n'
+      ata +=
+        'Gerada em ' +
+        new Date().toISOString().slice(0, 16).replace('T', ' ') +
+        ' UTC por ' +
+        auth.getString('name') +
+        '\n\n'
+      ata +=
+        '| Cenário | Papel | Representante | Resultado | Observado | Evidência | Observação |\n'
+      ata += '|---|---|---|---|---|---|---|\n'
+      for (const x of execs) {
+        const cid = x.getString('cenario_id')
+        ata +=
+          '| ' +
+          (NOMES[cid] || cid) +
+          ' (' +
+          cid +
+          ') | ' +
+          x.getString('papel') +
+          ' | ' +
+          x.getString('representante') +
+          ' | ' +
+          x.getString('resultado') +
+          ' | ' +
+          (x.getString('observado') || '—') +
+          ' | ' +
+          (x.getString('evidencia') || '—') +
+          ' | ' +
+          (x.getString('observacao') || '—') +
+          ' |\n'
+      }
+      if (decisao) {
+        ata += '\n## Decisão de piloto\n\n'
+        ata += '- **Decisão:** ' + decisao.getString('decisao') + '\n'
+        ata += '- **Responsável:** ' + decisao.getString('responsavel') + '\n'
+        ata += '- **Justificativa:** ' + decisao.getString('justificativa') + '\n'
+        if (decisao.getString('bloqueios'))
+          ata += '- **Bloqueios:** ' + decisao.getString('bloqueios') + '\n'
+        ata += '- **Data:** ' + decisao.getString('decidido_em') + '\n'
+      } else {
+        ata +=
+          '\n## Decisão de piloto\n\n_Pendente — nenhuma decisão registrada (a aprovação nunca é inferida por silêncio)._\n'
+      }
     }
-    e.response.headers.set('Content-Type', 'text/markdown; charset=utf-8')
-    return e.json(200, md)
+    return e.json(200, { ok: true, formato: formato, total_respostas: execs.length, ata: ata })
   },
   $apis.requireAuth(),
 )
